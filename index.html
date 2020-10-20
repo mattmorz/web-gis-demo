@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+	
+	<title>Web-GIS DEMO</title>
+
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="leaflet/leaflet.css">
+	<link rel="stylesheet" href="bootstrap/bootstrap.min.css">
+    <script typ="text/javascript" src="leaflet/leaflet.js"></script>
+	<script typ="text/javascript" src="jquery.min.js"></script>
+
+
+	<style>
+		html, body {
+			padding: 10px;
+			height: 100%;
+		}
+		#map {
+			width: 100%;
+			height: 500px;
+		}
+		#seachWrapper{
+			margin-bottom: 10px
+		}
+	</style>
+
+	
+</head>
+<body>
+<div class="container">
+	<h4>Web-GIS Demo: Leaflet, integrating GeoServer, Postgres with PostGIS.</h4>
+	<div class="row" id="seachWrapper">
+		<form class="form-inline">
+			<div class="form-group">
+				<input class="form-control" type="text" placeholder="type municipality" id="textInput"></input>
+				<select class="form-control" id="typeOfQuery">
+				  <option value="active_cases">Active cases</option>
+				  <option value="recoveries">Recoveries</option>
+				  <option value="deaths">Deaths</option>
+				</select>
+				<select class="form-control" id="greaterLess">
+				  <option value="<">Less than</option>
+				  <option value="=">Equal</option>
+				  <option value=">">Greater than</option>
+				</select>
+				<input class="form-control" type="number" placeholder="input number" id="numberInput"></input>
+	
+				<button type="button" class="btn btn-primary" id="btnGo">Go</button>
+				<button type="button" class="btn btn-danger" id="btnClear">Clear</button>
+			</div>
+		</form>
+	</div>
+	<div class="row">
+		<div id='map'></div>
+	</div>
+	<h6 class="text-danger"><strong>Disclaimer: Data related to COVID-19 used on this website is for DEVELOPMENT PURPOSE ONLY.</strong></h6>
+</div>
+
+<script type="text/javascript">
+	var owsURI = 'http://127.0.0.1:8080/geoserver/forProj/ows';
+	var municipalities;
+	var WFSLayer = null;
+	var map = L.map('map').setView([9.1204, 125.59], 8);
+	var basemap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+	}).addTo(map);
+	
+	L.control.scale().addTo(map);
+	
+	var legend = L.control({position: 'topright'});
+	legend.onAdd = function (map) {
+		var div = L.DomUtil.create('div', 'info legend');
+		div.innerHTML ='<img src="http://localhost:8080/geoserver/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=forProj:caragaregion_municipalities&legend_options=fontName:Arial;fontAntiAliasing:true;fontColor:0x000033;fontSize:10;bgColor:0xFFFFEE;dpi:120;labelMargin:5"/>';
+		return div;
+	};
+	legend.addTo(map);
+	
+
+
+	
+	
+	function wfsRequest(filter){
+		var defaultParameters = {
+			service: 'WFS',
+			version: '2.0.0',
+			request: 'GetFeature',
+			typeName: 'forProj:caragaregion_municipalities',
+			maxFeatures: 100,
+			outputFormat: 'application/json',
+			cql_filter: filter
+		}
+		var parameters = L.Util.extend(defaultParameters);
+		var URL = owsURI + L.Util.getParamString(parameters);
+		$.ajax({
+			url : URL,
+			dataType : 'json',
+			jsonpCallback : 'getJson',
+			success : function (response) {
+				if(response.features.length > 0){
+					WFSLayer = L.geoJson(response, {
+						style: function (feature) {
+							return {
+								stroke: false,
+								fillColor: null,
+								fillOpacity: 0
+							};
+						}
+					}).addTo(map);
+					map.fitBounds(WFSLayer.getBounds()); 
+				}else{
+					alert('NO RESULT, TRY ANOTHER VALUE');
+				}
+
+			}
+		})
+	}
+
+	
+	function load_municipalities(){
+		municipalities = L.tileLayer.wms(owsURI, {
+			layers: 'forProj:caragaregion_municipalities',
+			format: 'image/png',
+			transparent: true,
+			attribution: "Matt Morales",
+			zIndex: 100,
+			opacity: .8,
+			version: '1.1.0',
+		}).addTo(map);
+	}
+
+	load_municipalities();
+	
+	map.on("click", function(e) {
+		var _layers = this._layers,
+		  layers = [],
+		  versions = [],
+		  styles = [];
+
+		for (var x in _layers) {
+		  var _layer = _layers[x];
+		  if (_layer.wmsParams) {
+			layers.push(_layer.wmsParams.layers);
+			versions.push(_layer.wmsParams.version);
+			styles.push(_layer.wmsParams.styles);
+		  }
+		}
+		
+		var loc = e.latlng,
+		  xy = e.containerPoint,
+		  size = this.getSize(),
+		  bounds = this.getBounds(),
+		  crs = this.options.crs,
+		  sw = crs.project(bounds.getSouthWest()),
+		  ne = crs.project(bounds.getNorthEast()),
+		  obj = {
+			service: "WMS",
+			version: versions[0],
+			request: "GetFeatureInfo",
+			layers: layers,
+			bbox: sw.x + "," + sw.y + "," + ne.x + "," + ne.y,
+			width: size.x,
+			height: size.y,
+			query_layers: layers,
+			info_format: "application/json", 
+			feature_count: 1
+		  };
+		if (parseFloat(obj.version) >= 1.3) {
+		  obj.crs = crs.code;
+		  obj.i = Math.round(xy.x);
+		  obj.j = Math.round(xy.y);
+		} else {
+		  obj.srs = crs.code;
+		  obj.x = Math.round(xy.x);
+		  obj.y = Math.round(xy.y);
+		}
+		$.ajax({
+		  url: owsURI + L.Util.getParamString(obj, owsURI, true),
+		  success: function(data, status, xhr) {
+			var html = "<table  class='table table-striped'>";
+			if (data.features) {
+			 var features = data.features;
+			  if (features.length) {
+				for (var i in features) {
+				  var feature = features[i];                     
+				  var properties=feature.properties;
+				  html+='<thead><tr><th>Property</th><th>Value</th></tr></thead><tbody>';
+				  for (var x in properties) {
+					  html+='<tr><th>'+x+'</th><td>'+properties[x]+'</td></tr>';
+				  }
+				  html+='</tbody></table>';
+				}
+			  } else {
+				html += "No Features Found.";
+			  }
+			} else {
+			  html += "Failed to Read the Feature(s).";
+			}
+			map.openPopup(html, loc,{maxHeight:500});
+		  },
+		  error: function(xhr, status, err) {
+			html += "Unable to Complete the Request.: " + err;
+			map.openPopup(html, loc);
+		  }
+		});
+	});
+
+	function set_cql(textInput,greaterLess, numberInput, typeOfQuery) {
+		var cql_filter = [];
+		if (textInput){
+			cql_filter.push("mun_name LIKE '%"+textInput+"%'")
+		}
+		if (numberInput){
+			cql_filter.push(typeOfQuery+" "+greaterLess+" "+numberInput)
+		}
+		
+		if (cql_filter.length == 2){
+			cql_filter.splice(1, 0, "AND");
+		}
+		if (cql_filter.length==0){
+			cql_filter.push("1=1")
+		}
+
+		municipalities.setParams({
+			CQL_FILTER: cql_filter.join(' ')
+		})
+		wfsRequest(cql_filter.join(' '));
+	}
+	
+	$('#btnGo').click(function(){
+		var textInput = $('#textInput').val();
+		var greaterLess = $('#greaterLess').val();
+		var numberInput = $('#numberInput').val();
+		var typeOfQuery = $('#typeOfQuery').val();
+		WFSLayer = null;
+		set_cql(textInput.toUpperCase(),greaterLess, numberInput, typeOfQuery);
+		map.closePopup();
+	})
+	$('#btnClear').click(function(){
+		$('#textInput').val('');
+		$('#numberInput').val('');
+		municipalities.setParams({
+			CQL_FILTER: '1=1',
+		})
+		map.closePopup();
+		WFSLayer = null;
+	})
+</script>
+
+
+
+</body></html>
