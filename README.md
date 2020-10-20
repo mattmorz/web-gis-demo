@@ -1,6 +1,7 @@
 # web-gis-demo
-A basic implemetation of Web-GIS system using Leaflet JS, GeoServer and Postgres with PostGIS plugin(extension)
+A basic implemetation of Web-GIS using Leaflet JS, GeoServer and Postgres with PostGIS plugin(extension)
 
+[![Demo](https://i.imgur.com/zhqnQDY.gif "Demo")](https://i.imgur.com/zhqnQDY.gif "Demo")
 ### Prerequisite
 1. Postgres with PostGIS plugin is installed in your machine
 1. GeoServer is installed in your machine
@@ -17,6 +18,3 @@ A basic implemetation of Web-GIS system using Leaflet JS, GeoServer and Postgres
 - Display legend using WMS GetLegendGraphic Request
 
 **Note: Change the URI accordingly e.g. if you use another URI on GeoServer, change the value of *owsURI* on *index.html***
-
-
-
