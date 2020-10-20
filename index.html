@@ -24,6 +24,13 @@
 		#seachWrapper{
 			margin-bottom: 10px
 		}
+		#loader{
+			position:absolute;
+			top: 50%;
+			left: 45%;
+			z-index: 99999;
+			display: none;
+		}
 	</style>
 
 	
@@ -53,6 +60,11 @@
 		</form>
 	</div>
 	<div class="row">
+		<div class="text-center" id="loader">
+			<div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+				<span class="sr-only">Loading...</span>
+			</div>
+		</div>
 		<div id='map'></div>
 	</div>
 	<h6 class="text-danger"><strong>Disclaimer: Data related to COVID-19 used on this website is for DEVELOPMENT PURPOSE ONLY.</strong></h6>
@@ -78,8 +90,6 @@
 	legend.addTo(map);
 	
 
-
-	
 	
 	function wfsRequest(filter){
 		var defaultParameters = {
@@ -97,7 +107,11 @@
 			url : URL,
 			dataType : 'json',
 			jsonpCallback : 'getJson',
+			beforeSend: function (){
+				$('#loader').show();
+			},
 			success : function (response) {
+				$('#loader').hide();
 				if(response.features.length > 0){
 					WFSLayer = L.geoJson(response, {
 						style: function (feature) {
@@ -177,7 +191,11 @@
 		}
 		$.ajax({
 		  url: owsURI + L.Util.getParamString(obj, owsURI, true),
+		  beforeSend:function(){
+			$('#loader').show();
+		  },
 		  success: function(data, status, xhr) {
+			$('#loader').hide();
 			var html = "<table  class='table table-striped'>";
 			if (data.features) {
 			 var features = data.features;
